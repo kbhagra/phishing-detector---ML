@@ -1,130 +1,171 @@
-import os 
-import joblib 
-import pandas as pd 
-import numpy as np 
-import matplotlib .pyplot as plt 
-from sklearn .model_selection import train_test_split 
-from sklearn .ensemble import RandomForestClassifier 
-from sklearn .metrics import log_loss ,accuracy_score ,classification_report ,confusion_matrix ,roc_auc_score 
-from get_dataset import load_dataset 
-def train_random_forest (max_trees =100 ):
-    print ("Loading dataset...")
-    df ,csv_path =load_dataset ()
-    X =df .drop (columns =['id','CLASS_LABEL'])
-    y =df ['CLASS_LABEL']
-    target_names =['Class 0: Malicious Phishing','Class 1: Legitimate']
-    print (f"\nFeature matrix shape: {X .shape }")
-    print (f"Target distribution:\n{y .value_counts ()}")
-    print ("Class 0 -> Malicious Phishing Links")
-    print ("Class 1 -> Legitimate Links")
-    X_train ,X_test ,y_train ,y_test =train_test_split (
-    X ,y ,test_size =0.2 ,random_state =42 ,stratify =y 
+import os
+import joblib
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import log_loss, accuracy_score, classification_report, confusion_matrix, roc_auc_score
+from get_dataset import load_dataset
+
+
+def train_random_forest(max_trees=100):
+    print("Loading dataset...")
+    df, csv_path = load_dataset()
+    X = df.drop(columns=['id', 'CLASS_LABEL'])
+    y = df['CLASS_LABEL']
+    target_names = ['Class 0: Malicious Phishing', 'Class 1: Legitimate']
+
+    print("\nDataset Info:")
+    print(f"Feature matrix shape: {X.shape}")
+    print(f"Target distribution:\n{y.value_counts()}")
+    print("Class 0 -> Malicious Phishing Links")
+    print("Class 1 -> Legitimate Links")
+    
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42, stratify=y
     )
-    print (f"\nTrain set: {X_train .shape [0 ]} samples | Test set: {X_test .shape [0 ]} samples")
-    print (f"\nTraining Random Forest Classifier (1 to {max_trees } trees)...")
-    rf_model =RandomForestClassifier (n_estimators =1 ,warm_start =True ,random_state =42 ,n_jobs =-1 )
-    train_losses ,val_losses =[],[]
-    train_accs ,val_accs =[],[]
-    for n_trees in range (1 ,max_trees +1 ):
-        rf_model .n_estimators =n_trees 
-        rf_model .fit (X_train ,y_train )
-        train_prob =rf_model .predict_proba (X_train )
-        val_prob =rf_model .predict_proba (X_test )
-        train_pred =rf_model .predict (X_train )
-        val_pred =rf_model .predict (X_test )
-        tr_loss =log_loss (y_train ,train_prob )
-        va_loss =log_loss (y_test ,val_prob )
-        tr_acc =accuracy_score (y_train ,train_pred )
-        va_acc =accuracy_score (y_test ,val_pred )
-        train_losses .append (tr_loss )
-        val_losses .append (va_loss )
-        train_accs .append (tr_acc *100 )
-        val_accs .append (va_acc *100 )
-        if n_trees ==1 or n_trees %10 ==0 or n_trees ==max_trees :
-            print (f"Trees: {n_trees :3d}/{max_trees } | "
-            f"Train Loss: {tr_loss :.4f} | Val Loss: {va_loss :.4f} | "
-            f"Train Acc: {tr_acc *100 :.2f}% | Val Acc: {va_acc *100 :.2f}%")
-    y_pred =rf_model .predict (X_test )
-    y_prob =rf_model .predict_proba (X_test )[:,1 ]
-    acc =accuracy_score (y_test ,y_pred )
-    roc_auc =roc_auc_score (y_test ,y_prob )
-    cm =confusion_matrix (y_test ,y_pred )
-    report =classification_report (y_test ,y_pred ,target_names =target_names )
-    print ("\n"+"="*60 )
-    print ("      RANDOM FOREST MODEL RESULTS")
-    print ("="*60 )
-    print (f"Accuracy : {acc *100 :.2f}%")
-    print (f"ROC-AUC  : {roc_auc :.4f}")
-    print ("\nConfusion Matrix:")
-    print (pd .DataFrame (cm ,index =target_names ,columns =['Pred 0 (Phishing)','Pred 1 (Legitimate)']))
-    print ("\nClassification Report:")
-    print (report )
-    plots_dir ="plots"
-    os .makedirs (plots_dir ,exist_ok =True )
-    fig ,axes =plt .subplots (1 ,2 ,figsize =(14 ,5 ))
-    axes [0 ].plot (range (1 ,max_trees +1 ),train_losses ,label ='Train Loss',color ='#1f77b4',linewidth =2 )
-    axes [0 ].plot (range (1 ,max_trees +1 ),val_losses ,label ='Validation Loss',color ='#d62728',linewidth =2 ,linestyle ='--')
-    axes [0 ].set_title ('Random Forest: Loss over Number of Trees',fontsize =12 ,fontweight ='bold')
-    axes [0 ].set_xlabel ('Number of Trees (n_estimators)',fontsize =10 )
-    axes [0 ].set_ylabel ('Log Loss (Binary Cross-Entropy)',fontsize =10 )
-    axes [0 ].legend (loc ='upper right')
-    axes [0 ].grid (True ,linestyle =':',alpha =0.6 )
-    axes [1 ].plot (range (1 ,max_trees +1 ),train_accs ,label ='Train Accuracy',color ='#1f77b4',linewidth =2 )
-    axes [1 ].plot (range (1 ,max_trees +1 ),val_accs ,label ='Validation Accuracy',color ='#2ca02c',linewidth =2 ,linestyle ='--')
-    axes [1 ].set_title ('Random Forest: Accuracy over Number of Trees',fontsize =12 ,fontweight ='bold')
-    axes [1 ].set_xlabel ('Number of Trees (n_estimators)',fontsize =10 )
-    axes [1 ].set_ylabel ('Accuracy (%)',fontsize =10 )
-    axes [1 ].legend (loc ='lower right')
-    axes [1 ].grid (True ,linestyle =':',alpha =0.6 )
-    plt .tight_layout ()
-    curve_plot_path =os .path .join (plots_dir ,"random_forest_curves.png")
-    plt .savefig (curve_plot_path ,dpi =300 )
-    plt .close ()
-    print (f"\nSaved training curves plot to      : {curve_plot_path }")
-    importances =rf_model .feature_importances_ 
-    feature_names =X .columns 
-    feature_importance_df =pd .DataFrame ({
-    'Feature':feature_names ,
-    'Importance':importances 
-    }).sort_values (by ='Importance',ascending =False )
-    top_n =15 
-    top_features =feature_importance_df .head (top_n )
-    plt .figure (figsize =(10 ,6 ))
-    plt .barh (top_features ['Feature'][::-1 ],top_features ['Importance'][::-1 ],color ='#2ca02c',edgecolor ='black')
-    plt .title (f'Random Forest: Top {top_n } Feature Importances',fontsize =12 ,fontweight ='bold')
-    plt .xlabel ('Gini Importance',fontsize =10 )
-    plt .tight_layout ()
-    fi_plot_path =os .path .join (plots_dir ,"random_forest_feature_importance.png")
-    plt .savefig (fi_plot_path ,dpi =300 )
-    plt .close ()
-    print (f"Saved feature importances plot to  : {fi_plot_path }")
-    plt .figure (figsize =(6 ,5 ))
-    plt .imshow (cm ,interpolation ='nearest',cmap =plt .cm .Greens )
-    plt .title ('Random Forest: Confusion Matrix',fontsize =12 ,fontweight ='bold')
-    plt .colorbar ()
-    tick_marks =np .arange (len (target_names ))
-    plt .xticks (tick_marks ,['Phishing (0)','Legitimate (1)'],rotation =0 )
-    plt .yticks (tick_marks ,['Phishing (0)','Legitimate (1)'])
-    thresh =cm .max ()/2. 
-    for i in range (cm .shape [0 ]):
-        for j in range (cm .shape [1 ]):
-            plt .text (j ,i ,format (cm [i ,j ],'d'),
-            horizontalalignment ="center",
-            color ="white"if cm [i ,j ]>thresh else "black",
-            fontsize =12 ,fontweight ='bold')
-    plt .ylabel ('True Class')
-    plt .xlabel ('Predicted Class')
-    plt .tight_layout ()
-    cm_plot_path =os .path .join (plots_dir ,"rf_confusion_matrix.png")
-    plt .savefig (cm_plot_path ,dpi =300 )
-    plt .close ()
-    print (f"Saved confusion matrix plot to     : {cm_plot_path }")
-    models_dir ="models"
-    os .makedirs (models_dir ,exist_ok =True )
-    model_path =os .path .join (models_dir ,"random_forest_model.pt")
-    joblib .dump (rf_model ,model_path )
-    print (f"Random Forest model saved to       : {model_path }")
-    print ("="*60 )
-    return rf_model 
-if __name__ =="__main__":
-    train_random_forest (max_trees =100 )
+    
+    print(f"\nTrain set: {X_train.shape[0]} samples | Test set: {X_test.shape[0]} samples")
+    print(f"\nTraining Random Forest Classifier (1 to {max_trees} trees)...")
+
+    # warm_start means re-use created estimators (since we are adding one estimator at a time in the loop below)
+    # n_jobs=-1 means use all cores to speed up processing
+    rf_model = RandomForestClassifier(n_estimators=1, warm_start=True, random_state=42, n_jobs=-1)
+    train_losses, val_losses = [], []
+    train_accs, val_accs = [], []
+
+    # train and test a tree, adding one estimator at a time
+    for n_trees in range(1, max_trees + 1):
+        rf_model.n_estimators = n_trees
+        rf_model.fit(X_train, y_train)
+        
+        train_prob = rf_model.predict_proba(X_train)
+        val_prob = rf_model.predict_proba(X_test)
+        train_pred = rf_model.predict(X_train)
+        val_pred = rf_model.predict(X_test)
+        
+        tr_loss = log_loss(y_train, train_prob)
+        va_loss = log_loss(y_test, val_prob)
+        tr_acc = accuracy_score(y_train, train_pred)
+        va_acc = accuracy_score(y_test, val_pred)
+        
+        train_losses.append(tr_loss)
+        val_losses.append(va_loss)
+        train_accs.append(tr_acc * 100)
+        val_accs.append(va_acc * 100)
+
+        # print progress at certain milestones
+        if n_trees == 1 or n_trees % 10 == 0 or n_trees == max_trees:
+            print(f"Trees: {n_trees:3d}/{max_trees} | "
+                  f"Train Loss: {tr_loss:.4f} | Val Loss: {va_loss:.4f} | "
+                  f"Train Acc: {tr_acc * 100:.2f}% | Val Acc: {va_acc * 100:.2f}%")
+            
+    y_pred = rf_model.predict(X_test)
+    y_prob = rf_model.predict_proba(X_test)[:, 1]
+    acc = accuracy_score(y_test, y_pred)
+    roc_auc = roc_auc_score(y_test, y_prob)
+    cm = confusion_matrix(y_test, y_pred)
+    report = classification_report(y_test, y_pred, target_names=target_names)
+
+    # ---------------------------
+    # Printing and Saving Results
+    
+    print("\n" + "=" * 60)
+    print("Random Forest Results (100 estimators)")
+    print("=" * 60)
+    print(f"Accuracy : {acc * 100:.2f}%")
+    print(f"ROC-AUC  : {roc_auc:.4f}")
+    print("\nConfusion Matrix:")
+    print(pd.DataFrame(cm, index=target_names, columns=['Pred 0 (Phishing)', 'Pred 1 (Legitimate)']))
+    print("\nClassification Report:")
+    print(report)
+    
+    plots_dir = "plots"
+    os.makedirs(plots_dir, exist_ok=True)
+
+    # training and validation loss/accuracy curves
+    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+    axes[0].plot(range(1, max_trees + 1), train_losses, label='Train Loss', color='#1f77b4', linewidth=2)
+    axes[0].plot(range(1, max_trees + 1), val_losses, label='Validation Loss', color='#d62728', linewidth=2, linestyle='--')
+    axes[0].set_title('Random Forest: Loss over Number of Trees', fontsize=12, fontweight='bold')
+    axes[0].set_xlabel('Number of Trees (n_estimators)', fontsize=10)
+    axes[0].set_ylabel('Log Loss (Binary Cross-Entropy)', fontsize=10)
+    axes[0].legend(loc='upper right')
+    axes[0].grid(True, linestyle=':', alpha=0.6)
+    
+    axes[1].plot(range(1, max_trees + 1), train_accs, label='Train Accuracy', color='#1f77b4', linewidth=2)
+    axes[1].plot(range(1, max_trees + 1), val_accs, label='Validation Accuracy', color='#2ca02c', linewidth=2, linestyle='--')
+    axes[1].set_title('Random Forest: Accuracy over Number of Trees', fontsize=12, fontweight='bold')
+    axes[1].set_xlabel('Number of Trees (n_estimators)', fontsize=10)
+    axes[1].set_ylabel('Accuracy (%)', fontsize=10)
+    axes[1].legend(loc='lower right')
+    axes[1].grid(True, linestyle=':', alpha=0.6)
+    
+    plt.tight_layout()
+    curve_plot_path = os.path.join(plots_dir, "random_forest_curves.png")
+    plt.savefig(curve_plot_path, dpi=300)
+    plt.close()
+    print(f"\nSaved training curves plot to      : {curve_plot_path}")
+
+    # feature importance
+    importances = rf_model.feature_importances_
+    feature_names = X.columns
+    feature_importance_df = pd.DataFrame({
+        'Feature': feature_names,
+        'Importance': importances
+    }).sort_values(by='Importance', ascending=False)
+    
+    top_n = 15
+    top_features = feature_importance_df.head(top_n)
+    
+    plt.figure(figsize=(10, 6))
+    plt.barh(top_features['Feature'][::-1], top_features['Importance'][::-1], color='#2ca02c', edgecolor='black')
+    plt.title(f'Random Forest: Top {top_n} Feature Importances', fontsize=12, fontweight='bold')
+    plt.xlabel('Gini Importance', fontsize=10)
+    plt.tight_layout()
+    
+    fi_plot_path = os.path.join(plots_dir, "random_forest_feature_importance.png")
+    plt.savefig(fi_plot_path, dpi=300)
+    plt.close()
+    print(f"Saved feature importances plot to  : {fi_plot_path}")
+
+    # confusion matrix
+    plt.figure(figsize=(6, 5))
+    plt.imshow(cm, interpolation='nearest', cmap=plt.cm.Greens)
+    plt.title('Random Forest: Confusion Matrix', fontsize=12, fontweight='bold')
+    plt.colorbar()
+    tick_marks = np.arange(len(target_names))
+    plt.xticks(tick_marks, ['Phishing (0)', 'Legitimate (1)'], rotation=0)
+    plt.yticks(tick_marks, ['Phishing (0)', 'Legitimate (1)'])
+    
+    thresh = cm.max() / 2.0
+    for i in range(cm.shape[0]):
+        for j in range(cm.shape[1]):
+            plt.text(j, i, format(cm[i, j], 'd'),
+                     horizontalalignment="center",
+                     color="white" if cm[i, j] > thresh else "black",
+                     fontsize=12, fontweight='bold')
+            
+    plt.ylabel('True Class')
+    plt.xlabel('Predicted Class')
+    plt.tight_layout()
+    
+    cm_plot_path = os.path.join(plots_dir, "rf_confusion_matrix.png")
+    plt.savefig(cm_plot_path, dpi=300)
+    plt.close()
+    print(f"Saved confusion matrix plot to     : {cm_plot_path}")
+
+    # saved trained model
+    models_dir = "models"
+    os.makedirs(models_dir, exist_ok=True)
+    model_path = os.path.join(models_dir, "random_forest_model.joblib")
+    joblib.dump(rf_model, model_path)
+    print(f"Random Forest model saved to       : {model_path}")
+    print("=" * 60)
+    
+    return rf_model
+
+
+if __name__ == "__main__":
+    train_random_forest(max_trees=100)
