@@ -9,7 +9,7 @@ import torch.optim as optim
 from torch.utils.data import TensorDataset, DataLoader
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, roc_auc_score
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, roc_auc_score, ConfusionMatrixDisplay
 from get_dataset import load_dataset
 
 torch.manual_seed(42)
@@ -160,9 +160,10 @@ def train_relu_mlp(epochs=50, batch_size=64, learning_rate=0.001, weight_decay=1
     print("\nClassification Report:")
     print(report)
 
-    # loss and accuracy curves
     plots_dir = "plots"
     os.makedirs(plots_dir, exist_ok=True)
+
+    # loss and accuracy curves
     fig, axes = plt.subplots(1, 2, figsize=(14, 5))
     
     axes[0].plot(range(1, epochs + 1), train_losses, label='Train Loss', color='#1f77b4', linewidth=2)
@@ -187,6 +188,21 @@ def train_relu_mlp(epochs=50, batch_size=64, learning_rate=0.001, weight_decay=1
     plt.close()
     
     print(f"\nSaved training curves plot to      : {curve_plot_path}")
+
+    # confusion matrix
+    cm_plot_path = os.path.join(plots_dir, "mlp_confusion_matrix.png")
+
+    fig, ax = plt.subplots(figsize=(8, 6))
+    disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=['Class 0: Phishing', 'Class 1: Legitimate'])
+    disp.plot(ax=ax, cmap=plt.cm.Blues, values_format='d', colorbar=True)
+    
+    ax.set_title('MLP: Confusion Matrix', fontsize=13, fontweight='bold', pad=15)
+    
+    plt.tight_layout()
+    plt.savefig(cm_plot_path, dpi=300)
+    plt.close()
+
+    print(f"Saved confusion matrix plot to    : {cm_plot_path}")
 
     # save model and associated scaler
     models_dir = "models"
