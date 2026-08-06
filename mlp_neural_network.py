@@ -11,9 +11,16 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, roc_auc_score, ConfusionMatrixDisplay
 from get_dataset import load_dataset
+import random
 
 torch.manual_seed(42)
+
+# extra determinism enforcement to match Colab run (Colab's results may still slightly vary)
+torch.cuda.manual_seed_all(42)
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
 np.random.seed(42)
+random.seed(42)
 
 class MLPmodel(nn.Module):
     """
