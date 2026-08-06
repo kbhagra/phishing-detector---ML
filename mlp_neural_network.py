@@ -21,30 +21,43 @@ class MLPmodel(nn.Module):
     Activation: ReLU Activation + Sigmoid Output
     Weight Initialization: He Normal Initialization
     """
-    def __init__(self, input_dim, dropout_rate=0.1):
+    def __init__(self, input_dim, dropout_rate=0.0):
         super(MLPmodel, self).__init__()
-        self.net = nn.Sequential(
-            # layer 1
+
+        # layer 1
+        layers = [
             nn.Linear(input_dim, 64),
             nn.BatchNorm1d(64),
-            nn.ReLU(),
-            nn.Dropout(dropout_rate),
+            nn.ReLU()
+        ]
 
-            # layer 2
+        if dropout_rate > 0.0:
+            layers.append(nn.Dropout(dropout_rate))
+
+        # layer 2
+        layers.extend([
             nn.Linear(64, 32),
             nn.BatchNorm1d(32),
-            nn.ReLU(),
-            nn.Dropout(dropout_rate),
+            nn.ReLU()
+        ])
 
-            # layer 3
+        if dropout_rate > 0.0:
+            layers.append(nn.Dropout(dropout_rate))
+
+        # layer 3
+        layers.extend([
             nn.Linear(32, 16),
             nn.BatchNorm1d(16),
-            nn.ReLU(),
+            nn.ReLU()
+        ])
 
-            # output layer
+        # output layer
+        layers.extend([
             nn.Linear(16, 1),
             nn.Sigmoid()
-        )
+        ])
+
+        self.net = nn.Sequential(*layers)
         self.apply(self._init_weights)
 
     def forward(self, x):
