@@ -1,8 +1,0 @@
-Model Family,Accuracy (%),Precision,Recall,F1-Score,ROC-AUC
-Baseline: Majority Classifier,50.00%,0.0000,0.0000,0.0000,0.5000
-Baseline: Decision Tree Stump,94.60%,0.9398,0.9530,0.9464,0.9664
-Linear: Logistic Regression,95.20%,0.9458,0.9590,0.9523,0.9859
-Tree-Based: Random Forest,98.50%,0.9860,0.9840,0.9850,0.9988
-Deep NN: 5-Layer ReLU MLP,97.40%,0.9798,0.9680,0.9738,0.9971
-RNN: Standard Feature LSTM,94.55%,0.9338,0.9590,0.9462,0.9878
-RNN: Character-Level URL LSTM,100.00%,1.0000,1.0000,1.0000,1.0000
