@@ -5,11 +5,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import log_loss, accuracy_score, classification_report, confusion_matrix, roc_auc_score
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, roc_auc_score
 from get_dataset import load_dataset
 
 
-def train_random_forest(max_trees=100):
+def train_random_forest():
     print("Loading dataset...")
     df, csv_path = load_dataset()
     X = df.drop(columns=['id', 'CLASS_LABEL'])
@@ -19,48 +19,38 @@ def train_random_forest(max_trees=100):
     print("\nDataset Info:")
     print(f"Feature matrix shape: {X.shape}")
     print(f"Target distribution:\n{y.value_counts()}")
-    print("Class 0 -> Malicious Phishing Links")
-    print("Class 1 -> Legitimate Links")
     
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=42, stratify=y
     )
     
     print(f"\nTrain set: {X_train.shape[0]} samples | Test set: {X_test.shape[0]} samples")
-    print(f"\nTraining Random Forest Classifier (1 to {max_trees} trees)...")
 
-    # warm_start means re-use created estimators (since we are adding one estimator at a time in the loop below)
-    # n_jobs=-1 means use all cores to speed up processing
-    rf_model = RandomForestClassifier(n_estimators=1, warm_start=True, random_state=42, n_jobs=-1)
-    train_losses, val_losses = [], []
-    train_accs, val_accs = [], []
-
-    # train and test a tree, adding one estimator at a time
-    for n_trees in range(1, max_trees + 1):
-        rf_model.n_estimators = n_trees
+    rf_model = RandomForestClassifier(n_estimators=5, warm_start=True, oob_score=True, random_state=42, n_jobs=-1)
+    
+    # oob error
+    # Note: 5,10,15 give warnings because not every input value has an OOB score
+    param_range = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]
+    print(f"\nCalculating OOB scores for n_estimators = {param_range}...")
+    
+    train_mean = []
+    oob_mean = []
+    
+    for n in param_range:
+        rf_model.n_estimators = n
         rf_model.fit(X_train, y_train)
         
-        train_prob = rf_model.predict_proba(X_train)
-        val_prob = rf_model.predict_proba(X_test)
-        train_pred = rf_model.predict(X_train)
-        val_pred = rf_model.predict(X_test)
+        # Training accuracy
+        tr_acc = accuracy_score(y_train, rf_model.predict(X_train)) * 100
+        train_mean.append(tr_acc)
         
-        tr_loss = log_loss(y_train, train_prob)
-        va_loss = log_loss(y_test, val_prob)
-        tr_acc = accuracy_score(y_train, train_pred)
-        va_acc = accuracy_score(y_test, val_pred)
+        # OOB accuracy
+        oob_acc = rf_model.oob_score_ * 100
+        oob_mean.append(oob_acc)
         
-        train_losses.append(tr_loss)
-        val_losses.append(va_loss)
-        train_accs.append(tr_acc * 100)
-        val_accs.append(va_acc * 100)
+        print(f"Trees: {n:3d} | Train Acc: {tr_acc:.2f}% | OOB Val Acc: {oob_acc:.2f}%")
 
-        # print progress at certain milestones
-        if n_trees == 1 or n_trees % 10 == 0 or n_trees == max_trees:
-            print(f"Trees: {n_trees:3d}/{max_trees} | "
-                  f"Train Loss: {tr_loss:.4f} | Val Loss: {va_loss:.4f} | "
-                  f"Train Acc: {tr_acc * 100:.2f}% | Val Acc: {va_acc * 100:.2f}%")
-            
+    # final test set    
     y_pred = rf_model.predict(X_test)
     y_prob = rf_model.predict_proba(X_test)[:, 1]
     acc = accuracy_score(y_test, y_pred)
@@ -74,8 +64,9 @@ def train_random_forest(max_trees=100):
     print("\n" + "=" * 60)
     print("Random Forest Results (100 estimators)")
     print("=" * 60)
-    print(f"Accuracy : {acc * 100:.2f}%")
+    print(f"Test Accuracy : {acc * 100:.2f}%")
     print(f"ROC-AUC  : {roc_auc:.4f}")
+    print(f"OOB Score: {rf_model.oob_score_ * 100:.2f}%")
     print("\nConfusion Matrix:")
     print(pd.DataFrame(cm, index=target_names, columns=['Pred 0 (Phishing)', 'Pred 1 (Legitimate)']))
     print("\nClassification Report:")
@@ -84,29 +75,21 @@ def train_random_forest(max_trees=100):
     plots_dir = "plots"
     os.makedirs(plots_dir, exist_ok=True)
 
-    # training and validation loss/accuracy curves
-    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
-    axes[0].plot(range(1, max_trees + 1), train_losses, label='Train Loss', color='#1f77b4', linewidth=2)
-    axes[0].plot(range(1, max_trees + 1), val_losses, label='Validation Loss', color='#d62728', linewidth=2, linestyle='--')
-    axes[0].set_title('Random Forest: Loss over Number of Trees', fontsize=12, fontweight='bold')
-    axes[0].set_xlabel('Number of Trees (n_estimators)', fontsize=10)
-    axes[0].set_ylabel('Log Loss (Binary Cross-Entropy)', fontsize=10)
-    axes[0].legend(loc='upper right')
-    axes[0].grid(True, linestyle=':', alpha=0.6)
-    
-    axes[1].plot(range(1, max_trees + 1), train_accs, label='Train Accuracy', color='#1f77b4', linewidth=2)
-    axes[1].plot(range(1, max_trees + 1), val_accs, label='Validation Accuracy', color='#2ca02c', linewidth=2, linestyle='--')
-    axes[1].set_title('Random Forest: Accuracy over Number of Trees', fontsize=12, fontweight='bold')
-    axes[1].set_xlabel('Number of Trees (n_estimators)', fontsize=10)
-    axes[1].set_ylabel('Accuracy (%)', fontsize=10)
-    axes[1].legend(loc='lower right')
-    axes[1].grid(True, linestyle=':', alpha=0.6)
-    
+    # Plot OOB validation curves
+    plt.figure(figsize=(10, 5))
+    plt.plot(param_range, train_mean, label='Training Accuracy', color='#1f77b4', marker='o', linewidth=2)
+    plt.plot(param_range, oob_mean, label='OOB Accuracy', color='#ff7f0e', marker='s', linestyle='--', linewidth=2)
+    plt.title('Random Forest: Effect of n_estimators on OOB Accuracy', fontsize=12, fontweight='bold')
+    plt.xlabel('Number of Trees (n_estimators)', fontsize=10)
+    plt.ylabel('Accuracy (%)', fontsize=10)
+    plt.legend(loc='lower right')
+    plt.grid(True, linestyle=':', alpha=0.6)
     plt.tight_layout()
-    curve_plot_path = os.path.join(plots_dir, "random_forest_curves.png")
+    
+    curve_plot_path = os.path.join(plots_dir, "random_forest_oob_curve.png")
     plt.savefig(curve_plot_path, dpi=300)
     plt.close()
-    print(f"\nSaved training curves plot to      : {curve_plot_path}")
+    print(f"\nSaved OOB curve plot to: {curve_plot_path}")
 
     # feature importance
     importances = rf_model.feature_importances_
@@ -154,18 +137,18 @@ def train_random_forest(max_trees=100):
     cm_plot_path = os.path.join(plots_dir, "rf_confusion_matrix.png")
     plt.savefig(cm_plot_path, dpi=300)
     plt.close()
-    print(f"Saved confusion matrix plot to     : {cm_plot_path}")
+    print(f"Saved confusion matrix plot to: {cm_plot_path}")
 
-    # saved trained model
+    # save trained model
     models_dir = "models"
     os.makedirs(models_dir, exist_ok=True)
     model_path = os.path.join(models_dir, "random_forest_model.joblib")
     joblib.dump(rf_model, model_path)
-    print(f"Random Forest model saved to       : {model_path}")
+    print(f"Random Forest model saved to: {model_path}")
     print("=" * 60)
     
     return rf_model
 
 
 if __name__ == "__main__":
-    train_random_forest(max_trees=100)
+    train_random_forest()
