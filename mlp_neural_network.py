@@ -200,7 +200,7 @@ def train_relu_mlp(epochs=50, batch_size=64, learning_rate=0.001, weight_decay=1
     plt.savefig(curve_plot_path, dpi=300)
     plt.close()
     
-    print(f"\nSaved training curves plot to      : {curve_plot_path}")
+    print(f"\nSaved training curves plot to: {curve_plot_path}")
 
     # confusion matrix
     cm_plot_path = os.path.join(plots_dir, "mlp_confusion_matrix.png")
@@ -226,8 +226,8 @@ def train_relu_mlp(epochs=50, batch_size=64, learning_rate=0.001, weight_decay=1
     torch.save(model.state_dict(), model_path)
     joblib.dump(scaler, scaler_path)
     
-    print(f"ReLU MLP Model weights saved to    : {model_path}")
-    print(f"ReLU MLP Scaler saved to           : {scaler_path}")
+    print(f"ReLU MLP Model weights saved to: {model_path}")
+    print(f"ReLU MLP Scaler saved to: {scaler_path}")
     print("=" * 60)
     
     return model, scaler

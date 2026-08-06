@@ -134,7 +134,7 @@ def train_random_forest():
     plt.xlabel('Predicted Class')
     plt.tight_layout()
     
-    cm_plot_path = os.path.join(plots_dir, "rf_confusion_matrix.png")
+    cm_plot_path = os.path.join(plots_dir, "random_forest_confusion_matrix.png")
     plt.savefig(cm_plot_path, dpi=300)
     plt.close()
     print(f"Saved confusion matrix plot to: {cm_plot_path}")
