@@ -215,7 +215,7 @@ def train_relu_mlp(epochs=50, batch_size=64, learning_rate=0.001, weight_decay=1
     plt.savefig(cm_plot_path, dpi=300)
     plt.close()
 
-    print(f"Saved confusion matrix plot to    : {cm_plot_path}")
+    print(f"Saved confusion matrix plot to: {cm_plot_path}")
 
     # save model and associated scaler
     models_dir = "models"
