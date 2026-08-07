@@ -14,49 +14,70 @@ from sklearn .linear_model import LogisticRegression
 from sklearn .ensemble import RandomForestClassifier 
 from sklearn .metrics import accuracy_score 
 from get_dataset import load_dataset 
-warnings .filterwarnings ('ignore')
-np .random .seed (42 )
-torch .manual_seed (42 )
-def run_logistic_regression_tuning (X_scaled ,y ,cv ):
+
+warnings.filterwarnings('ignore')
+np.random.seed(42)
+torch.manual_seed(42)
+
+def run_logistic_regression_tuning(X_scaled, y, cv):
     print ("\n"+"="*70 )
     print ("  1. LOGISTIC REGRESSION: L1 (LASSO) VS L2 (RIDGE) & C REGULARIZATION")
     print ("="*70 )
-    C_values =[0.001 ,0.01 ,0.1 ,1.0 ,10.0 ,100.0 ]
-    penalties =['l1','l2']
+
+    # controls the strength of regularization
+    C_values =[0.001 ,0.01 ,0.1 ,1.0 ,10.0 ,100.0 ] 
+
+    # type of regularization
+    penalties =['l1','l2'] 
     results =[]
+
     for penalty in penalties :
         for C in C_values :
-            lr =LogisticRegression (penalty =penalty ,C =C ,solver ='liblinear',random_state =42 ,max_iter =1000 )
+
+            lr = LogisticRegression(penalty=penalty, C=C, solver ='liblinear', random_state =42, max_iter =1000)
             train_scores ,val_scores =[],[]
-            num_zero_features =[]
-            for train_idx ,val_idx in cv .split (X_scaled ,y ):
-                X_tr ,X_va =X_scaled [train_idx ],X_scaled [val_idx ]
-                y_tr ,y_va =y .iloc [train_idx ],y .iloc [val_idx ]
-                lr .fit (X_tr ,y_tr )
-                tr_acc =accuracy_score (y_tr ,lr .predict (X_tr ))
-                va_acc =accuracy_score (y_va ,lr .predict (X_va ))
-                train_scores .append (tr_acc )
-                val_scores .append (va_acc )
-                num_zero_features .append (np .sum (lr .coef_ ==0 ))
-            mean_tr_acc =np .mean (train_scores )*100 
-            mean_va_acc =np .mean (val_scores )*100 
-            mean_zeros =np .mean (num_zero_features )
-            overfit_gap =mean_tr_acc -mean_va_acc 
-            results .append ({
-            'penalty':penalty .upper (),
-            'C':C ,
-            'train_acc':mean_tr_acc ,
-            'val_acc':mean_va_acc ,
-            'overfit_gap':overfit_gap ,
+            num_zero_features =[] # stores how many feature coefficients become exactly 0, For L1 regularization
+
+            for train_idx ,val_idx in cv.split(X_scaled, y): #5-fold cross-validation splitting
+                X_tr, X_va =X_scaled[train_idx], X_scaled[val_idx]
+                y_tr, y_va =y.iloc[train_idx] , y.iloc[val_idx]
+
+                lr.fit(X_tr, y_tr)
+
+                tr_acc = accuracy_score(y_tr, lr.predict(X_tr))
+                va_acc = accuracy_score(y_va, lr.predict(X_va))
+
+                train_scores.append(tr_acc)
+                val_scores.append(va_acc)
+                num_zero_features.append(np.sum(lr.coef_==0))
+
+            mean_tr_acc = np.mean(train_scores) * 100 
+            mean_va_acc = np.mean(val_scores) * 100 
+            mean_zeros = np.mean(num_zero_features)
+
+            overfit_gap = mean_tr_acc - mean_va_acc 
+
+            results.append({
+            'penalty':penalty.upper(),
+            'C':C,
+            'train_acc':mean_tr_acc,
+            'val_acc':mean_va_acc,
+            'overfit_gap':overfit_gap,
             'zero_features':mean_zeros 
             })
-            print (f"Penalty: {penalty .upper ():2s} | C: {C :7.3f} | Train Acc: {mean_tr_acc :.2f}% | "
+
+            print(f"Penalty: {penalty .upper ():2s} | C: {C :7.3f} | Train Acc: {mean_tr_acc :.2f}% | "
             f"Val Acc: {mean_va_acc :.2f}% | Gap: {overfit_gap :.2f}% | Zero Features: {mean_zeros :.1f}/48")
-    res_df =pd .DataFrame (results )
-    best_lr_row =res_df .loc [res_df ['val_acc'].idxmax ()]
+
+    res_df = pd.DataFrame(results)
+
+    best_lr_row = res_df.loc[res_df['val_acc'].idxmax()] #stores the Linear Regression config that achieved the best validation accuracy
+
     print (f"\n---> Best Logistic Regression Config: Penalty={best_lr_row ['penalty']}, C={best_lr_row ['C']} "
     f"with Val Accuracy={best_lr_row ['val_acc']:.2f}%")
-    return res_df ,best_lr_row 
+
+    return res_df, best_lr_row 
+
 def run_random_forest_tuning (X ,y ,cv ):
     print ("\n"+"="*70 )
     print ("  2. RANDOM FOREST: TREE DEPTH & REGULARIZATION SEARCH")
@@ -217,7 +238,7 @@ def main ():
     y =df ['CLASS_LABEL']
     scaler =StandardScaler ()
     X_scaled =scaler .fit_transform (X )
-    cv =StratifiedKFold (n_splits =5 ,shuffle =True ,random_state =42 )
+    cv =StratifiedKFold (n_splits =5 ,shuffle =True ,random_state =42 ) #5 fold
     lr_df ,best_lr =run_logistic_regression_tuning (X_scaled ,y ,cv )
     rf_df ,best_rf =run_random_forest_tuning (X ,y ,cv )
     mlp_df ,best_mlp =run_mlp_regularization_tuning (X_scaled ,y ,cv )
