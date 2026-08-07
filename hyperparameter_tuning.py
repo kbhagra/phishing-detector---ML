@@ -88,7 +88,7 @@ def run_logistic_regression_tuning(X_train, y_train, cv):
     return res_df, best_lr_row 
 
 
-def run_random_forest_tuning(X, y, cv):
+def run_random_forest_tuning(X_train, y_train, cv):
     print ("\n"+"="*70 )
     print ("  2. RANDOM FOREST: TREE DEPTH & REGULARIZATION SEARCH")
     print ("="*70 )
@@ -102,10 +102,10 @@ def run_random_forest_tuning(X, y, cv):
 
         train_scores, val_scores = [], []
 
-        for train_idx, val_idx in cv.split(X, y): #5-fold cross-validation splitting
+        for train_idx, val_idx in cv.split(X_train, y_train): #5-fold cross-validation splitting
 
-            X_tr, X_va = X.iloc[train_idx], X.iloc[val_idx]
-            y_tr, y_va = y.iloc[train_idx], y.iloc[val_idx]
+            X_tr, X_va = X_train.iloc[train_idx], X_train.iloc[val_idx]
+            y_tr, y_va = y_train.iloc[train_idx], y_train.iloc[val_idx]
 
             rf.fit(X_tr, y_tr) #train
 
@@ -115,7 +115,7 @@ def run_random_forest_tuning(X, y, cv):
         mean_tr_acc = np.mean(train_scores) * 100 
         mean_va_acc = np.mean(val_scores) * 100 
 
-        gap = mean_tr_acc -mean_va_acc 
+        gap = mean_tr_acc - mean_va_acc 
 
         depth_str =str(depth) if depth is not None else "None (Unconstrained)"
         results.append({
