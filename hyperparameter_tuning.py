@@ -280,13 +280,13 @@ def main ():
 
     # Tune only on 8000 training data
     #Logistic Regression 
-    lr_df, best_lr = run_logistic_regression_tuning(X_train_scaled, y_train, cv)
+    lr_df, best_lr = run_logistic_regression_tuning(X_train, y_train, cv)
 
     #Random Forest
     rf_df, best_rf = run_random_forest_tuning (X_train, y_train, cv) #don't need to use scaling for Random Forest
 
     #MLP
-    mlp_df, best_mlp = run_mlp_regularization_tuning (X_train_scaled, y_train, cv)
+    mlp_df, best_mlp = run_mlp_regularization_tuning (X_train, y_train, cv)
 
     plot_all_tuning_results (lr_df ,rf_df ,mlp_df )
 
