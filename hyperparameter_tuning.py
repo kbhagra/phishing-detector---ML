@@ -20,7 +20,7 @@ warnings.filterwarnings('ignore')
 np.random.seed(42)
 torch.manual_seed(42)
 
-def run_logistic_regression_tuning(X_scaled, y, cv):
+def run_logistic_regression_tuning(X_train, y_train, cv):
     print ("\n"+"="*70 )
     print ("  1. LOGISTIC REGRESSION: L1 (LASSO) VS L2 (RIDGE) & C REGULARIZATION")
     print ("="*70 )
@@ -35,13 +35,21 @@ def run_logistic_regression_tuning(X_scaled, y, cv):
     for penalty in penalties :
         for C in C_values :
 
-            lr = LogisticRegression(penalty=penalty, C=C, solver ='liblinear', random_state =42, max_iter =1000) #LR model
+            lr = LogisticRegression(penalty=penalty, C=C, solver ='liblinear', random_state=42, max_iter=1000) #LR model
             train_scores ,val_scores =[],[]
             num_zero_features =[] # stores how many feature coefficients become exactly 0, For L1 regularization
 
-            for train_idx ,val_idx in cv.split(X_scaled, y): #5-fold cross-validation splitting
-                X_tr, X_va =X_scaled[train_idx], X_scaled[val_idx]
-                y_tr, y_va =y.iloc[train_idx] , y.iloc[val_idx]
+            for train_idx ,val_idx in cv.split(X_train, y_train): #5-fold cross-validation splitting
+
+                X_tr, X_va = X_train.iloc[train_idx], X_train.iloc[val_idx]
+                y_tr, y_va = y_train.iloc[train_idx], y_train.iloc[val_idx]
+
+                #scale inside each CV fold to avoid leakage
+                scaler = StandardScaler()
+                X_tr = scaler.fit_transform(X_tr)
+
+                #use the same scale for the validation fold 
+                X_va = scaler.transform(X_va)
 
                 lr.fit(X_tr, y_tr) #train 
 
@@ -72,7 +80,7 @@ def run_logistic_regression_tuning(X_scaled, y, cv):
 
     res_df = pd.DataFrame(results)
 
-    best_lr_row = res_df.loc[res_df['val_acc'].idxmax()] #stores the Linear Regression config that achieved the best validation accuracy
+    best_lr_row = res_df.loc[res_df['val_acc'].idxmax()] #stores the Logistic Regression config that achieved the best validation accuracy
 
     print (f"\n---> Best Logistic Regression Config: Penalty={best_lr_row ['penalty']}, C={best_lr_row ['C']} "
     f"with Val Accuracy={best_lr_row ['val_acc']:.2f}%")
@@ -251,8 +259,8 @@ def plot_all_tuning_results (lr_df ,rf_df ,mlp_df ):
         os .remove (old_knn_plot )
     print ("\nSaved tuning plots (Logistic Regression, Random Forest, MLP) to ./plots/")
 
-def main ():
 
+def main ():
     print ("Loading dataset...")
 
     df, csv_path = load_dataset()
