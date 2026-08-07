@@ -14,6 +14,7 @@ from sklearn .linear_model import LogisticRegression
 from sklearn .ensemble import RandomForestClassifier 
 from sklearn .metrics import accuracy_score 
 from get_dataset import load_dataset 
+from sklearn.model_selection import train_test_split, StratifiedKFold
 
 warnings.filterwarnings('ignore')
 np.random.seed(42)
@@ -34,7 +35,7 @@ def run_logistic_regression_tuning(X_scaled, y, cv):
     for penalty in penalties :
         for C in C_values :
 
-            lr = LogisticRegression(penalty=penalty, C=C, solver ='liblinear', random_state =42, max_iter =1000)
+            lr = LogisticRegression(penalty=penalty, C=C, solver ='liblinear', random_state =42, max_iter =1000) #LR model
             train_scores ,val_scores =[],[]
             num_zero_features =[] # stores how many feature coefficients become exactly 0, For L1 regularization
 
@@ -42,7 +43,7 @@ def run_logistic_regression_tuning(X_scaled, y, cv):
                 X_tr, X_va =X_scaled[train_idx], X_scaled[val_idx]
                 y_tr, y_va =y.iloc[train_idx] , y.iloc[val_idx]
 
-                lr.fit(X_tr, y_tr)
+                lr.fit(X_tr, y_tr) #train 
 
                 tr_acc = accuracy_score(y_tr, lr.predict(X_tr))
                 va_acc = accuracy_score(y_va, lr.predict(X_va))
@@ -78,37 +79,55 @@ def run_logistic_regression_tuning(X_scaled, y, cv):
 
     return res_df, best_lr_row 
 
-def run_random_forest_tuning (X ,y ,cv ):
+
+def run_random_forest_tuning(X, y, cv):
     print ("\n"+"="*70 )
     print ("  2. RANDOM FOREST: TREE DEPTH & REGULARIZATION SEARCH")
     print ("="*70 )
-    depths =[3 ,5 ,8 ,12 ,20 ,None ]
+
+    depths =[3, 5, 8, 12, 20, None] #different maximum tree-depth limits to test
     results =[]
+
     for depth in depths :
-        rf =RandomForestClassifier (n_estimators =100 ,max_depth =depth ,min_samples_split =5 ,random_state =42 ,n_jobs =-1 )
-        train_scores ,val_scores =[],[]
-        for train_idx ,val_idx in cv .split (X ,y ):
-            X_tr ,X_va =X .iloc [train_idx ],X .iloc [val_idx ]
-            y_tr ,y_va =y .iloc [train_idx ],y .iloc [val_idx ]
-            rf .fit (X_tr ,y_tr )
-            train_scores .append (accuracy_score (y_tr ,rf .predict (X_tr )))
-            val_scores .append (accuracy_score (y_va ,rf .predict (X_va )))
-        mean_tr_acc =np .mean (train_scores )*100 
-        mean_va_acc =np .mean (val_scores )*100 
-        gap =mean_tr_acc -mean_va_acc 
-        depth_str =str (depth )if depth is not None else "None (Unconstrained)"
-        results .append ({
-        'max_depth':depth_str ,
-        'train_acc':mean_tr_acc ,
-        'val_acc':mean_va_acc ,
+
+        rf = RandomForestClassifier(n_estimators=100, max_depth=depth, min_samples_split=5, random_state=42, n_jobs=-1) # RF model
+
+        train_scores, val_scores = [], []
+
+        for train_idx, val_idx in cv.split(X, y): #5-fold cross-validation splitting
+
+            X_tr, X_va = X.iloc[train_idx], X.iloc[val_idx]
+            y_tr, y_va = y.iloc[train_idx], y.iloc[val_idx]
+
+            rf.fit(X_tr, y_tr) #train
+
+            train_scores.append(accuracy_score(y_tr, rf.predict(X_tr)))
+            val_scores.append(accuracy_score(y_va, rf.predict(X_va)))
+
+        mean_tr_acc = np.mean(train_scores) * 100 
+        mean_va_acc = np.mean(val_scores) * 100 
+
+        gap = mean_tr_acc -mean_va_acc 
+
+        depth_str =str(depth) if depth is not None else "None (Unconstrained)"
+        results.append({
+        'max_depth':depth_str,
+        'train_acc':mean_tr_acc,
+        'val_acc':mean_va_acc,
         'overfit_gap':gap 
         })
-        print (f"Max Depth: {depth_str :20s} | Train Acc: {mean_tr_acc :.2f}% | Val Acc: {mean_va_acc :.2f}% | Gap: {gap :.2f}%")
-    res_df =pd .DataFrame (results )
-    best_rf_row =res_df .loc [res_df ['val_acc'].idxmax ()]
+
+        print(f"Max Depth: {depth_str :20s} | Train Acc: {mean_tr_acc :.2f}% | Val Acc: {mean_va_acc :.2f}% | Gap: {gap :.2f}%")
+
+    res_df = pd.DataFrame(results) 
+    best_rf_row = res_df.loc[res_df['val_acc'].idxmax()] #stores the RF config that achieved the best validation accuracy
+
     print (f"\n---> Best Random Forest Config: Max Depth={best_rf_row ['max_depth']} "
     f"with Val Accuracy={best_rf_row ['val_acc']:.2f}%")
-    return res_df ,best_rf_row 
+
+    return res_df, best_rf_row 
+
+
 class ConfigurableMLP (nn .Module ):
     def __init__ (self ,input_dim =48 ,dropout_rate =0.2 ):
         super (ConfigurableMLP ,self ).__init__ ()
@@ -231,28 +250,61 @@ def plot_all_tuning_results (lr_df ,rf_df ,mlp_df ):
     if os .path .exists (old_knn_plot ):
         os .remove (old_knn_plot )
     print ("\nSaved tuning plots (Logistic Regression, Random Forest, MLP) to ./plots/")
+
 def main ():
+
     print ("Loading dataset...")
-    df ,csv_path =load_dataset ()
-    X =df .drop (columns =['id','CLASS_LABEL'])
-    y =df ['CLASS_LABEL']
-    scaler =StandardScaler ()
-    X_scaled =scaler .fit_transform (X )
-    cv =StratifiedKFold (n_splits =5 ,shuffle =True ,random_state =42 ) #5 fold
-    lr_df ,best_lr =run_logistic_regression_tuning (X_scaled ,y ,cv )
-    rf_df ,best_rf =run_random_forest_tuning (X ,y ,cv )
-    mlp_df ,best_mlp =run_mlp_regularization_tuning (X_scaled ,y ,cv )
+
+    df, csv_path = load_dataset()
+
+    #drop "id" and "CLASS_LABEL" column from the dataset we downloaded
+    X = df.drop(columns=['id','CLASS_LABEL']) 
+    y = df['CLASS_LABEL']
+
+    #Keeps 20%  of the data completely separate for final testing
+    X_train, X_test, y_train, y_test = train_test_split(
+        X,
+        y,
+        test_size=0.20, #keep 20% of the data for testing
+        stratify=y, #keep roughly the same class proportions 
+        random_state=42
+    )
+
+    """
+    Can't Scale in main because scaling leaks across the Cross Validation folds
+    scaler = StandardScaler() #to standardize numeric features
+    X_train_scaled = scaler.fit_transform(X_train)
+    """
+
+    cv = StratifiedKFold(n_splits =5 ,shuffle =True ,random_state =42 ) #5 fold cross validation
+
+    # Tune only on 8000 training data
+    #Logistic Regression 
+    lr_df, best_lr = run_logistic_regression_tuning(X_train_scaled, y_train, cv)
+
+    #Random Forest
+    rf_df, best_rf = run_random_forest_tuning (X_train, y_train, cv) #don't need to use scaling for Random Forest
+
+    #MLP
+    mlp_df, best_mlp = run_mlp_regularization_tuning (X_train_scaled, y_train, cv)
+
     plot_all_tuning_results (lr_df ,rf_df ,mlp_df )
+
     print ("\n"+"="*85 )
     print ("      FINAL HYPERPARAMETER TUNING & REGULARIZATION REPORT SUMMARY")
     print ("="*85 )
-    summary_data =[
+
+    summary_data = [
     {"Model":"Logistic Regression","Best Config / Regularization":f"Penalty={best_lr ['penalty']}, C={best_lr ['C']}","Train Acc":f"{best_lr ['train_acc']:.2f}%","Val Acc":f"{best_lr ['val_acc']:.2f}%","Train-Val Gap":f"{best_lr ['overfit_gap']:.2f}%"},
     {"Model":"Random Forest","Best Config / Regularization":f"Max Depth={best_rf ['max_depth']}","Train Acc":f"{best_rf ['train_acc']:.2f}%","Val Acc":f"{best_rf ['val_acc']:.2f}%","Train-Val Gap":f"{best_rf ['overfit_gap']:.2f}%"},
-    {"Model":"5-Layer MLP Neural Net","Best Config / Regularization":f"Dropout={best_mlp ['dropout']}, L2={best_mlp ['weight_decay']}","Train Acc":f"{best_mlp ['train_acc']:.2f}%","Val Acc":f"{best_mlp ['val_acc']:.2f}%","Train-Val Gap":f"{best_mlp ['overfit_gap']:.2f}%"}
+    {"Model":"3-Layer MLP Neural Net","Best Config / Regularization":f"Dropout={best_mlp ['dropout']}, L2={best_mlp ['weight_decay']}","Train Acc":f"{best_mlp ['train_acc']:.2f}%","Val Acc":f"{best_mlp ['val_acc']:.2f}%","Train-Val Gap":f"{best_mlp ['overfit_gap']:.2f}%"}
     ]
-    summary_table =pd .DataFrame (summary_data )
-    print (summary_table .to_string (index =False ))
-    print ("="*85 )
+
+    summary_table = pd.DataFrame(summary_data)
+
+    print (summary_table.to_string(index =False))
+    print ("="*85)
+
+
 if __name__ =="__main__":
     main ()
