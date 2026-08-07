@@ -32,7 +32,7 @@ An end-to-end Machine Learning and Deep Learning system designed to detect malic
 | **Baseline** | Decision Tree Stump | 94.60% | 0.9398 | 0.9530 | 0.9464 | 0.9664 |
 | **Linear Model** | Logistic Regression | 95.20% | 0.9458 | 0.9590 | 0.9523 | 0.9859 |
 | **Recurrent NN** | Standard Feature LSTM | 94.55% | 0.9338 | 0.9590 | 0.9462 | 0.9878 |
-| **Deep NN** | 5-Layer ReLU MLP | 97.40% | 0.9798 | 0.9680 | 0.9738 | 0.9971 |
+| **Deep NN** | 3-Layer ReLU MLP | 97.40% | 0.9798 | 0.9680 | 0.9738 | 0.9971 |
 | **Tree-Based** | **Random Forest (Best)** | **98.50%** | **0.9860** | **0.9840** | **0.9850** | **0.9988** |
 | **Recurrent NN** | **Char-Level Raw URL LSTM** | **100.00%** | **1.0000** | **1.0000** | **1.0000** | **1.0000** |
 
