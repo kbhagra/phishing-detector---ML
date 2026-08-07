@@ -136,83 +136,213 @@ def run_random_forest_tuning(X_train, y_train, cv):
     return res_df, best_rf_row 
 
 
-class ConfigurableMLP (nn .Module ):
-    def __init__ (self ,input_dim =48 ,dropout_rate =0.2 ):
-        super (ConfigurableMLP ,self ).__init__ ()
-        self .net =nn .Sequential (
-        nn .Linear (input_dim ,128 ),
-        nn .BatchNorm1d (128 ),
-        nn .ReLU (),
-        nn .Dropout (dropout_rate ),
-        nn .Linear (128 ,64 ),
-        nn .BatchNorm1d (64 ),
-        nn .ReLU (),
-        nn .Dropout (dropout_rate ),
-        nn .Linear (64 ,32 ),
-        nn .BatchNorm1d (32 ),
-        nn .ReLU (),
-        nn .Linear (32 ,16 ),
-        nn .BatchNorm1d (16 ),
-        nn .ReLU (),
-        nn .Linear (16 ,8 ),
-        nn .BatchNorm1d (8 ),
-        nn .ReLU (),
-        nn .Linear (8 ,1 ),
-        nn .Sigmoid ()
-        )
-    def forward (self ,x ):
-        return self .net (x )
-def run_mlp_regularization_tuning (X_scaled ,y ,cv ):
+class ConfigurableMLP(nn.Module):
+    """
+    3-Layer MLP
+    Activation: ReLU Activation + Sigmoid Output
+    Weight Initialization: He Normal Initialization
+    """
+    def __init__(self, input_dim=48, dropout_rate=0.0):
+        super(ConfigurableMLP, self).__init__()
+
+        # layer 1
+        layers = [
+            nn.Linear(input_dim, 64),
+            nn.BatchNorm1d(64),
+            nn.ReLU()
+        ]
+
+        if dropout_rate > 0.0:
+            layers.append(nn.Dropout(dropout_rate))
+
+        # layer 2
+        layers.extend([
+            nn.Linear(64, 32),
+            nn.BatchNorm1d(32),
+            nn.ReLU()
+        ])
+
+        if dropout_rate > 0.0:
+            layers.append(nn.Dropout(dropout_rate))
+
+        # layer 3
+        layers.extend([
+            nn.Linear(32, 16),
+            nn.BatchNorm1d(16),
+            nn.ReLU()
+        ])
+
+        # output
+        layers.extend([
+            nn.Linear(16, 1),
+            nn.Sigmoid()
+        ])
+
+        self.net = nn.Sequential(*layers)
+        self.apply(self._init_weights)
+
+    # he initialization for weights
+    def _init_weights(self, module):
+        if isinstance(module, nn.Linear):
+            nn.init.kaiming_normal_(module.weight, nonlinearity="relu")
+            if module.bias is not None:
+                nn.init.zeros_(module.bias)
+
+    def forward(self, x):
+        return self.net(x)
+
+def run_mlp_regularization_tuning(X_train, y_train, cv):
     print ("\n"+"="*70 )
     print ("  3. NEURAL NETWORK (MLP): DROPOUT & L2 WEIGHT DECAY REGULARIZATION")
     print ("="*70 )
-    dropout_rates =[0.0 ,0.1 ,0.25 ,0.4 ]
-    weight_decays =[0.0 ,1e-4 ,1e-3 ,1e-2 ]
+
+    dropout_rates =[0.0, 0.1, 0.25, 0.4]
+    weight_decays =[0.0, 1e-4, 1e-3, 1e-2]
     results =[]
-    X_t =torch .tensor (X_scaled ,dtype =torch .float32 )
-    y_t =torch .tensor (y .values ,dtype =torch .float32 ).unsqueeze (1 )
-    train_idx ,val_idx =next (cv .split (X_scaled ,y ))
-    X_tr ,y_tr =X_t [train_idx ],y_t [train_idx ]
-    X_va ,y_va =X_t [val_idx ],y_t [val_idx ]
-    loader =DataLoader (TensorDataset (X_tr ,y_tr ),batch_size =256 ,shuffle =True )
-    for drop in dropout_rates :
-        for wd in weight_decays :
-            torch .manual_seed (42 )
-            model =ConfigurableMLP (input_dim =48 ,dropout_rate =drop )
-            criterion =nn .BCELoss ()
-            optimizer =optim .Adam (model .parameters (),lr =0.003 ,weight_decay =wd )
-            for epoch in range (15 ):
-                model .train ()
-                for b_x ,b_y in loader :
-                    optimizer .zero_grad ()
-                    loss =criterion (model (b_x ),b_y )
-                    loss .backward ()
-                    optimizer .step ()
-            model .eval ()
-            with torch .no_grad ():
-                tr_out =model (X_tr )
-                va_out =model (X_va )
-                va_loss =criterion (va_out ,y_va ).item ()
-                tr_pred =(tr_out .numpy ()>=0.5 ).astype (int )
-                va_pred =(va_out .numpy ()>=0.5 ).astype (int )
-                tr_acc =accuracy_score (y .iloc [train_idx ],tr_pred )*100 
-                va_acc =accuracy_score (y .iloc [val_idx ],va_pred )*100 
-                gap =tr_acc -va_acc 
-            results .append ({
-            'dropout':drop ,
-            'weight_decay':wd ,
-            'train_acc':tr_acc ,
-            'val_acc':va_acc ,
-            'val_loss':va_loss ,
-            'overfit_gap':gap 
+
+    for drop in dropout_rates:
+        for wd in weight_decays:
+
+            # store results from all 5 folds
+            train_scores = []
+            val_scores = []
+            val_losses = []
+
+            for train_idx, val_idx in cv.split(X_train, y_train):
+
+                X_tr, X_va = X_train.iloc[train_idx], X_train.iloc[val_idx]
+                y_tr, y_va = y_train.iloc[train_idx], y_train.iloc[val_idx]
+
+                # scale using only this fold's training data
+                scaler = StandardScaler()
+                X_tr = scaler.fit_transform(X_tr)
+                X_va = scaler.transform(X_va)
+
+                # convert each scaled fold to tensors
+                X_tr = torch.tensor(X_tr, dtype=torch.float32)
+                X_va = torch.tensor(X_va, dtype=torch.float32)
+
+                y_tr = torch.tensor(
+                    y_tr.values,
+                    dtype=torch.float32
+                ).unsqueeze(1)
+
+                y_va = torch.tensor(
+                    y_va.values,
+                    dtype=torch.float32
+                ).unsqueeze(1)
+
+                loader = DataLoader(
+                    TensorDataset(X_tr, y_tr),
+                    batch_size=256,
+                    shuffle=True
+                )
+
+                torch.manual_seed(42)
+
+                model = ConfigurableMLP(
+                    input_dim=48,
+                    dropout_rate=drop
+                )
+
+                criterion = nn.BCELoss()
+
+                optimizer = optim.Adam(
+                    model.parameters(),
+                    lr=0.003,
+                    weight_decay=wd
+                )
+
+                for epoch in range(15):
+                    model.train()
+
+                    for b_x, b_y in loader:
+                        optimizer.zero_grad()
+
+                        loss = criterion(
+                            model(b_x),
+                            b_y
+                        )
+
+                        loss.backward()
+                        optimizer.step()
+
+                model.eval()
+
+                with torch.no_grad():
+                    tr_out = model(X_tr)
+                    va_out = model(X_va)
+
+                    va_loss = criterion(
+                        va_out,
+                        y_va
+                    ).item()
+
+                    tr_pred = (
+                        tr_out.numpy() >= 0.5
+                    ).astype(int).ravel()
+
+                    va_pred = (
+                        va_out.numpy() >= 0.5
+                    ).astype(int).ravel()
+
+                    # use y_tr and y_va from this fold
+                    tr_acc = accuracy_score(
+                        y_tr.numpy().ravel(),
+                        tr_pred
+                    ) * 100
+
+                    va_acc = accuracy_score(
+                        y_va.numpy().ravel(),
+                        va_pred
+                    ) * 100
+
+                # save this fold's results
+                train_scores.append(tr_acc)
+                val_scores.append(va_acc)
+                val_losses.append(va_loss)
+
+            # average results across all 5 folds
+            mean_tr_acc = np.mean(train_scores)
+            mean_va_acc = np.mean(val_scores)
+            mean_va_loss = np.mean(val_losses)
+
+            gap = mean_tr_acc - mean_va_acc
+
+            results.append({
+                'dropout': drop,
+                'weight_decay': wd,
+                'train_acc': mean_tr_acc,
+                'val_acc': mean_va_acc,
+                'val_loss': mean_va_loss,
+                'overfit_gap': gap
             })
-            print (f"Dropout: {drop :4.2f} | Weight Decay (L2): {wd :6.4f} | Train Acc: {tr_acc :.2f}% | "
-            f"Val Acc: {va_acc :.2f}% | Val Loss: {va_loss :.4f} | Gap: {gap :.2f}%")
-    res_df =pd .DataFrame (results )
-    best_mlp_row =res_df .loc [res_df ['val_acc'].idxmax ()]
-    print (f"\n---> Best MLP Config: Dropout={best_mlp_row ['dropout']}, Weight Decay={best_mlp_row ['weight_decay']} "
-    f"with Val Accuracy={best_mlp_row ['val_acc']:.2f}%")
-    return res_df ,best_mlp_row 
+
+            print(
+                f"Dropout: {drop:4.2f} | "
+                f"Weight Decay (L2): {wd:6.4f} | "
+                f"Train Acc: {mean_tr_acc:.2f}% | "
+                f"Val Acc: {mean_va_acc:.2f}% | "
+                f"Val Loss: {mean_va_loss:.4f} | "
+                f"Gap: {gap:.2f}%"
+            )
+
+    res_df = pd.DataFrame(results)
+
+    best_mlp_row = res_df.loc[
+        res_df['val_acc'].idxmax()
+    ]
+
+    print(
+        f"\n---> Best MLP Config: "
+        f"Dropout={best_mlp_row['dropout']}, "
+        f"Weight Decay={best_mlp_row['weight_decay']} "
+        f"with Val Accuracy={best_mlp_row['val_acc']:.2f}%"
+    )
+
+    return res_df, best_mlp_row
+
+
 def plot_all_tuning_results (lr_df ,rf_df ,mlp_df ):
     plots_dir ="plots"
     os .makedirs (plots_dir ,exist_ok =True )
